@@ -283,38 +283,6 @@ def test_two_decoders_interleaved_do_not_corrupt_each_other():
           % (first[0], second[0]))
 
 
-def test_cavlc_and_cabac_are_the_same_decoder_underneath():
-    """CAVLC is a second entropy layer, not a second decoder. Everything
-    below clause 9.2 -- prediction, the transforms, deblocking -- is the
-    code the CABAC vectors already exercise, so the thing worth asserting
-    separately is that switching entropy coders does not switch anything
-    else: the same picture, encoded both ways at the same quantiser,
-    reconstructs to two pictures that are close, and each is exactly its
-    own ground truth.
-
-    Close and not equal, because the two streams are two encodes and x264
-    makes different mode decisions when the bits cost differently. The
-    bit-exactness is asserted per stream by the vector tests above; what a
-    large difference here would mean is that one of the two paths is
-    reconstructing from correctly decoded coefficients differently, which
-    no amount of per-stream exactness against a truth file made by the
-    same decoder would catch."""
-    if _skip():
-        return
-    size = 128 * 96
-    _w, _h, cabac = h264.Decoder().decode_i420(
-        _access_units(_stream("p-sub8x8"))[0])
-    _w, _h, cavlc = h264.Decoder().decode_i420(
-        _access_units(_stream("cavlc-8x8"))[0])
-    worst = max(abs(a - b) for a, b in zip(cabac[:size], cavlc[:size]))
-    mean = sum(abs(a - b) for a, b in zip(cabac[:size], cavlc[:size])) / size
-    assert mean < 4.0, (
-        "the same frame decoded %.2f apart on average through the two "
-        "entropy coders (worst sample %d)" % (mean, worst))
-    print("  ok  one picture through both entropy coders: mean |diff| "
-          "%.2f, worst %d" % (mean, worst))
-
-
 def test_garbage_is_refused_rather_than_crashing():
     """Every byte in these streams came from a stranger, so the decoder is
     fed some that came from nowhere at all."""

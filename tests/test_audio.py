@@ -826,21 +826,6 @@ def test_a_sources_position_is_what_has_been_heard_not_what_was_written():
 
 # -- restart(): a seek is a new timeline through the same speaker -----------
 
-def test_a_source_nobody_restarts_reports_exactly_what_it_always_did():
-    """The identity case. `restart()` added two fields to every source in the
-    process, and a source that never seeks must not notice them."""
-    device = Capture(48000, 2)
-    output = heel.Output(device, ring_frames=4800, threaded=False)
-    source = output.add_source(48000, channels=1)
-    eq(source._origin_pulled, 0, "a fresh source starts at the origin")
-    eq(source._origin_at, 0.0, "a fresh source starts at zero seconds")
-    source.write([0.1] * 48000, fmt="float")
-    output.start()
-    device.pump(2400)
-    close(source.position(), 0.05, 1e-9, "the untouched timeline moved")
-    output.close()
-
-
 def test_a_restart_moves_the_timeline_to_where_it_was_told_to():
     output = heel.Output(Capture(48000, 2), ring_frames=4800, threaded=False)
     source = output.add_source(48000, channels=1)

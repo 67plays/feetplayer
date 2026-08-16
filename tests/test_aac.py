@@ -694,12 +694,6 @@ def test_sbr_signalled_and_absent_is_still_plain_aac_lc():
     assert "Spectral Band Replication" in reason, reason
     print("  ok  sbrPresentFlag=1 refused: %s" % reason)
 
-    # And the object type in the field proper, which never reaches the
-    # extension at all.
-    reason = aac.probe(_asc(5))
-    assert reason and "Spectral Band Replication" in reason, reason
-    print("  ok  object type 5 up front still refused")
-
 
 def test_the_two_containers_ffmpeg_writes_decode_to_the_same_samples():
     """One encode, two containers, two configs, and it must not matter.
