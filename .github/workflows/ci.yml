@@ -72,8 +72,11 @@ jobs:
           python -m venv .venv
           if [ -d .venv/Scripts ]; then bin="$PWD/.venv/Scripts"; \
             else bin="$PWD/.venv/bin"; fi
-          "$bin/pip" install --quiet --upgrade pip
-          "$bin/pip" install --quiet pyflakes .
+          # `pip install --upgrade pip` through pip.exe cannot replace a
+          # running executable on Windows and refuses; through the
+          # interpreter it can.
+          "$bin/python" -m pip install --quiet --upgrade pip
+          "$bin/python" -m pip install --quiet pyflakes .
           echo "PY=$bin/python" >> "$GITHUB_ENV"
 
       - name: Lint (pyflakes)
