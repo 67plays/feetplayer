@@ -69,16 +69,35 @@ def main():
     print("  ok  MP3    %d Hz, %d channels, %d bytes of float in frame 0"
           % (track.sample_rate, track.channels, len(samples)))
 
-    # And the output stack on a machine with no speaker: the null device
-    # consumes frames exactly the way a real one does.
-    output = heel.Output(heel.NullDevice(), threaded=False)
+    # And the output stack on a machine with no speaker, turned by hand:
+    # the player decodes, the output mixes into the ring, the device
+    # consumes. `paced=False` keeps the device off the wall clock, since a
+    # hundred iterations of this loop take microseconds and a paced device
+    # would truthfully report that no time had passed. `silent = False` is
+    # the same thing tests/test_pcm.py does -- the playhead declines to
+    # follow a device nobody can hear, and here there is nobody to hear it.
+    device = heel.NullDevice(44100, 2, paced=False)
+    output = heel.Output(device, ring_frames=4410, threaded=False)
+    output.silent = False
     player = arch.AudioPlayer(data=_read("mp3", "lowrate.mp3"), output=output,
-                             threaded=False)
-    player.play()
-    for _ in range(20):
-        player.pump()
-    print("  ok  heel   played to %.3fs through the null device"
-          % player.position())
+                              threaded=False)
+    assert player.playable, player.error
+    assert player.play()
+    device.pump(output.ring.backlog)       # the silence `start()` primed
+    for _ in range(100):
+        player.pump(441)
+        output.pump()
+        device.pump(441)
+    played = player.position()
+    # A tenth of a second is a low bar on purpose. The exact number depends
+    # on how the ring fills against how it drains, which tests/test_audio.py
+    # is the place to pin; what is being asked here is only whether the
+    # playhead moved at all, because the answer for a stack that installed
+    # but did not link would be zero.
+    assert played > 0.1, "the playhead did not follow the sound: %g" % played
+    assert not player.decode_errors, "%d frames failed to decode" \
+        % player.decode_errors
+    print("  ok  heel   played %.3fs of MP3 through the null device" % played)
     player.close()
     output.close()
 
