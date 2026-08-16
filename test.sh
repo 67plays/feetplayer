@@ -7,20 +7,16 @@
 # gfortran the three decoder suites say so and skip, which is a path worth
 # running too.
 #
-# The one outside requirement is feetbrowser-engine, the Rust image decoders
-# mediacodec.py hands a Motion JPEG frame to. It is built into a local .venv
-# here, the same way FeetBrowser's own test.sh builds it.
+# There are no outside requirements. feetbrowser_engine is not installed
+# here on purpose: it is optional, only Motion JPEG and QuickTime `png ` use
+# it, and tests/test_optional.py is the suite that holds them to refusing by
+# name without it. Running the suite in the state most machines are in is
+# the point.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 if [ ! -x .venv/bin/python ]; then
   python3 -m venv .venv
-fi
-
-# Building it takes minutes, so it is built once and then left alone. Pass
-# any argument to pip by re-running with the venv removed.
-if ! .venv/bin/python -c "import feetbrowser_engine" 2>/dev/null; then
-  .venv/bin/pip install -q "feetbrowser-engine @ git+https://github.com/JuiceyDew/FeetBrowser@10d092ecd99543725143d6ab284e5166d4930bea#subdirectory=rust"
 fi
 
 if ! .venv/bin/python -c "import pyflakes" 2>/dev/null; then
@@ -40,3 +36,4 @@ $run tests/test_h264.py    # the Fortran H.264 decoder, or the skip where there 
 $run tests/test_aac.py     # the Fortran AAC decoder, against FFmpeg's samples
 $run tests/test_mp3.py     # the Fortran MPEG Layer III decoder, likewise
 $run tests/test_pcm.py     # uncompressed sound, against the waveform it was made from
+$run tests/test_optional.py  # the engine is optional: refuse by name, decode everything else

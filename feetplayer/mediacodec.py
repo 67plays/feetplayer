@@ -38,13 +38,19 @@ decoder" is a useful sentence and silence is not. ADPCM, mu-law and A-law
 are on that list and stay there: each of them is a real decoder, small but
 not nothing, and each is refused under its own name rather than under PCM's.
 
-Motion JPEG is the one that makes this a video player rather than a
-demonstration. It is here because the expensive half of it was already
-written: `imagecodec.decode_jpeg` is our own baseline-and-progressive JPEG
-decoder in Rust, and it decodes a 320x240 picture in about a millisecond, so
-a frame costs a couple of percent of one frame's worth of time. The codec
-below is the cheap half -- work out where each JPEG starts and ends, hand it
-over, and put the pixels where the compositor expects them.
+Motion JPEG is here because the expensive half of it was already written:
+`feetbrowser_engine.decode_jpeg` is a baseline-and-progressive JPEG decoder
+in Rust, written for `<img>`, which decodes a 320x240 picture in about a
+millisecond. The codec below is the cheap half -- work out where each JPEG
+starts and ends, hand it over, and put the pixels where the compositor
+expects them.
+
+That engine, and only that engine, is optional. It belongs to the browser,
+and requiring it here would make a media library that cannot be installed
+without one. Motion JPEG and QuickTime `png ` are the two codecs that need
+it and they refuse by name when it is missing, exactly as a codec we never
+wrote refuses. Everything that makes this worth having -- H.264, AAC, MP3,
+PCM, and every container -- has no such dependency and never touches it.
 
 Everything else in this module *reads* the file and refuses honestly: a WebM
 carrying VP9, or an H.264 stream with SP slices, is walked far enough to
@@ -81,8 +87,14 @@ import struct
 import sys
 
 from . import h264
-import feetbrowser_engine as imagecodec
-from feetbrowser_engine import MAX_PIXELS
+
+# Deliberately the same number as the browser's own image limit, which is
+# where this constant used to be imported from. It is a bounds check on a
+# header, and a header is a claim rather than a fact: nothing stops a file
+# declaring 40000x40000. Duplicating the value is the cheaper of the two
+# mistakes -- the other one is depending on an image library to find out how
+# big a picture is allowed to be.
+MAX_PIXELS = 20000000
 
 __all__ = ["MediaError", "VideoFrame", "VideoTrack", "MediaInfo",
            "AudioFrame", "AudioTrack", "AudioInfo",
@@ -700,6 +712,7 @@ class _Mjpeg(_Codec):
 
     def __init__(self, width, height):
         _check_size(width, height)
+        self._image = _image_module("MJPEG")
         self.width = width
         self.height = height
 
@@ -711,13 +724,13 @@ class _Mjpeg(_Codec):
             return None
         image = _jpeg_frame(packet)
         try:
-            width, height, rgba = imagecodec.decode_jpeg(image)
-        except imagecodec.ImageError as exc:
+            width, height, rgba = self._image.decode_jpeg(image)
+        except self._image.ImageError as exc:
             raise MediaError("MJPEG frame: %s" % exc)
         if (width, height) != (self.width, self.height):
             _check_size(width, height)
-            rgba = imagecodec.resize(rgba, width, height,
-                                     self.width, self.height)
+            rgba = self._image.resize(rgba, width, height,
+                                      self.width, self.height)
         return rgba
 
 
@@ -792,6 +805,31 @@ class _H264(_Codec):
         except h264.H264Error as exc:
             raise MediaError("H.264 frame: %s" % exc)
         return rgba
+
+
+def _image_module(what):
+    """The JPEG and PNG decoders, imported at the moment they are needed.
+
+    These two live in `feetbrowser_engine`, the browser's Rust extension,
+    because they were written for `<img>` and a second copy of a JPEG decoder
+    would be a second copy of its bugs. That makes them the only thing in
+    this package that comes from outside it, and they are optional: the
+    engine is a compiled extension belonging to a browser, and a media
+    library that could not be installed without it would be a media library
+    that depends on a browser.
+
+    So the two codecs that need it -- Motion JPEG and QuickTime `png ` --
+    refuse by name when it is absent, the way every other codec we do not
+    have refuses by name, and everything else in this module carries on
+    without noticing. H.264, AAC, MP3 and PCM do not come through here.
+    """
+    try:
+        import feetbrowser_engine
+    except Exception as exc:        # not just ImportError: a broken build
+        raise MediaError(
+            "%s: no decoder -- the JPEG and PNG decoders live in "
+            "feetbrowser_engine, which is not installed (%s)" % (what, exc))
+    return feetbrowser_engine
 
 
 def _aac_module():
@@ -2692,6 +2730,7 @@ class _PngFrames(_Codec):
 
     def __init__(self, width, height):
         _check_size(width, height)
+        self._image = _image_module("QuickTime PNG")
         self.width = width
         self.height = height
 
@@ -2702,13 +2741,13 @@ class _PngFrames(_Codec):
         if not packet:
             return None
         try:
-            width, height, rgba = imagecodec.decode_png(packet)
-        except imagecodec.ImageError as exc:
+            width, height, rgba = self._image.decode_png(packet)
+        except self._image.ImageError as exc:
             raise MediaError("PNG frame: %s" % exc)
         if (width, height) != (self.width, self.height):
             _check_size(width, height)
-            rgba = imagecodec.resize(rgba, width, height,
-                                     self.width, self.height)
+            rgba = self._image.resize(rgba, width, height,
+                                      self.width, self.height)
         return rgba
 
 

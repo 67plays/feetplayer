@@ -17,15 +17,17 @@ classifiers = [
     "Topic :: Multimedia :: Video",
 ]
 
-# The image decoders. mediacodec.py hands a Motion JPEG frame and a
-# QuickTime `png ` frame straight to them, and scales a frame whose stored
-# size is not its display size with `resize`. They are Rust, they live in
-# FeetBrowser's `rust/` directory, and they are pinned to a commit rather
-# than to a branch so that a build is reproducible and pip can cache the
-# wheel it builds from it.
-dependencies = [
-    "feetbrowser-engine @ git+https://github.com/JuiceyDew/FeetBrowser@10d092ecd99543725143d6ab284e5166d4930bea#subdirectory=rust",
-]
+# Nothing. The decoders are Fortran compiled at install time and the audio
+# output is ctypes against libraries the operating system already has.
+#
+# Motion JPEG and QuickTime `png ` can use `feetbrowser_engine` for their
+# image decoding if it happens to be installed, and refuse by name if it is
+# not. It is deliberately not listed here, even as an extra: it is
+# FeetBrowser's own Rust extension, FeetBrowser depends on this package, and
+# naming it would close that loop into a cycle -- installing feetplayer
+# would fetch a second copy of an engine the browser's own checkout already
+# built, pinned to a sha going stale from the moment it was written.
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/67plays/feetplayer"

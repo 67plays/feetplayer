@@ -58,15 +58,6 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y gfortran
 
-      # The Rust image decoders. Pinned to a commit in pyproject.toml, which
-      # is what makes pip's wheel cache willing to keep the build: a VCS
-      # requirement is only cached when its URL is immutable.
-      - name: Cache the built engine
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: engine-${{ runner.os }}-py${{ matrix.python }}-${{ hashFiles('pyproject.toml') }}
-
       - name: Install
         run: |
           python -m venv .venv
@@ -109,12 +100,23 @@ jobs:
       - name: PCM audio
         run: $PY tests/test_pcm.py
 
+      - name: The engine is optional
+        run: $PY tests/test_optional.py
+
   # What a stranger types. The job above installs from the working tree; this
   # one installs the way the README says to, over the network, into a venv
   # with nothing in it, and then decodes a real file with each decoder. It is
   # the only thing here that would notice a package that builds from a
   # checkout and not from a clone.
+  #
+  # It is also the job that proves the dependency list is empty in the only
+  # way that counts. `dependencies = []` in pyproject.toml is a claim; a venv
+  # that pip has finished with, asserted to have no feetbrowser_engine in it
+  # and decoding H.264, AAC and MP3 anyway, is the fact. Do not install the
+  # engine into this job to "make MJPEG work" -- MJPEG not working here, by
+  # name, is the assertion.
   install:
+    name: clean install, no engine
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -130,6 +132,20 @@ jobs:
           python -m venv /tmp/clean
           /tmp/clean/bin/pip install --quiet \
             "git+https://github.com/${{ github.repository }}@${{ github.sha }}"
+
+      # Everything pip put in the venv, and the assertion that the engine is
+      # not among it. A dependency that crept back into pyproject.toml would
+      # be installed silently and every check below would still pass.
+      - name: Nothing came with it
+        run: |
+          /tmp/clean/bin/pip list --format=freeze
+          /tmp/clean/bin/python -c "
+          import importlib.util, sys
+          assert importlib.util.find_spec('feetbrowser_engine') is None, \
+              'the engine is installed: this job proves nothing'
+          import feetplayer
+          print('feetplayer', feetplayer.__version__, 'and nothing else')
+          "
 
       - name: Decode something with each of them
         run: /tmp/clean/bin/python tests/decode_check.py

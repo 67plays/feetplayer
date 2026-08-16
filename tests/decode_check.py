@@ -69,6 +69,26 @@ def main():
     print("  ok  MP3    %d Hz, %d channels, %d bytes of float in frame 0"
           % (track.sample_rate, track.channels, len(samples)))
 
+    # The optional half. Everything above this line is what feetplayer
+    # decodes on its own; Motion JPEG and QuickTime `png ` are the two codecs
+    # that need the browser's Rust engine, and on a clean install there is no
+    # browser. Whichever way it goes, say which, and hold the absent case to
+    # refusing by name rather than to failing some other way.
+    try:
+        import feetbrowser_engine
+    except ImportError:
+        try:
+            mediacodec._Mjpeg(320, 240)
+        except mediacodec.MediaError as exc:
+            assert "MJPEG" in str(exc) and "feetbrowser_engine" in str(exc), exc
+            print("  ok  MJPEG  no engine installed, refused by name")
+        else:
+            raise AssertionError("MJPEG built a decoder with no engine")
+    else:
+        mediacodec._Mjpeg(320, 240)
+        print("  ok  MJPEG  engine present at %s"
+              % os.path.dirname(feetbrowser_engine.__file__))
+
     # And the output stack on a machine with no speaker, turned by hand:
     # the player decodes, the output mixes into the ring, the device
     # consumes. `paced=False` keeps the device off the wall clock, since a

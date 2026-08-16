@@ -61,11 +61,27 @@ no gfortran anywhere the decoders report themselves unavailable, by name and
 with a reason, and everything that does not need them keeps working. That is
 a path the suite tests on purpose.
 
-The image decoders come from `feetbrowser-engine`, FeetBrowser's Rust
-extension, which pip builds from that repository. Motion JPEG and QuickTime
-`png ` hand their frames straight to it, and it is what scales a frame whose
-stored size is not the size it is displayed at. A Rust toolchain is needed to
-build it.
+There are no Python dependencies. The decoders are Fortran and the audio
+output is `ctypes` against libraries the operating system already has.
+
+Two codecs are the exception, and they are optional. Motion JPEG and
+QuickTime `png ` are still-image formats in a container costume, so they use
+the JPEG and PNG decoders in `feetbrowser_engine` -- FeetBrowser's Rust
+extension -- rather than carrying a second copy of a JPEG decoder and a
+second copy of its bugs. It is deliberately not a dependency: FeetBrowser
+depends on this package, and depending back on FeetBrowser's own extension
+would make a cycle, so installing feetplayer would fetch a second engine
+beside the one a browser checkout had already built.
+
+Without it, those two codecs refuse by name the way any codec we never wrote
+refuses, and everything else -- H.264, AAC, MP3, PCM, every container -- is
+unaffected. If you want them:
+
+```
+pip install "git+https://github.com/JuiceyDew/FeetBrowser#subdirectory=rust"
+```
+
+which needs a Rust toolchain.
 
 ## Using it
 
