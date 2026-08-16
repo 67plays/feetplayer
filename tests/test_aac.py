@@ -70,7 +70,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # second copy of them.
 sys.path.insert(1, os.path.dirname(os.path.abspath(__file__)))
 
-from feetbrowser import aac, mediacodec
+from feetplayer import aac, mediacodec
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "fixtures", "aac")

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "feetplayer"
+version = "0.1.0"
+description = "The codecs and audio output FeetBrowser plays media with"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "67plays" }]
+license-files = ["LICENSE"]
+classifiers = [
+    "Programming Language :: Fortran",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Multimedia :: Video",
+]
+
+# The image decoders. mediacodec.py hands a Motion JPEG frame and a
+# QuickTime `png ` frame straight to them, and scales a frame whose stored
+# size is not its display size with `resize`. They are Rust, they live in
+# FeetBrowser's `rust/` directory, and they are pinned to a commit rather
+# than to a branch so that a build is reproducible and pip can cache the
+# wheel it builds from it.
+dependencies = [
+    "feetbrowser-engine @ git+https://github.com/JuiceyDew/FeetBrowser@10d092ecd99543725143d6ab284e5166d4930bea#subdirectory=rust",
+]
+
+[project.urls]
+Homepage = "https://github.com/67plays/feetplayer"
+
+[tool.setuptools]
+packages = ["feetplayer"]
+
+# The Fortran ships as sources, always, even when a library was built here:
+# `prebuilt_name()` is a hash of these files, so a decoder that cannot see
+# them cannot work out what it is called.
+[tool.setuptools.package-data]
+feetplayer = ["fortran/*.f", "fortran/*.inc"]

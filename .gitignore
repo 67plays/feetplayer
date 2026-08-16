@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# setuptools and pip leave these behind
+build/
+dist/
+*.egg-info/
+
+# The three Fortran decoders, when they have been built for shipping. The
+# build puts them here; they are build products, they are platform-specific,
+# and each is named after a hash of fortran/ so a committed one would go
+# stale silently.
+feetplayer/_h264_*
+feetplayer/_aac_*
+feetplayer/_mp3_*

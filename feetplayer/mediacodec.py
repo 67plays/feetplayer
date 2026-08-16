@@ -81,8 +81,8 @@ import struct
 import sys
 
 from . import h264
-from . import imagecodec
-from .imagecodec import MAX_PIXELS
+import feetbrowser_engine as imagecodec
+from feetbrowser_engine import MAX_PIXELS
 
 __all__ = ["MediaError", "VideoFrame", "VideoTrack", "MediaInfo",
            "AudioFrame", "AudioTrack", "AudioInfo",

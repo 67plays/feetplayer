@@ -28,7 +28,7 @@ import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from feetbrowser import h264, mediacodec
+from feetplayer import h264, mediacodec
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "fixtures", "h264")
@@ -611,7 +611,8 @@ def test_no_fortran_routine_is_called_with_the_wrong_number_of_arguments():
     This reads the sources rather than running anything, so it is the one
     test here that is worth something on a machine with no gfortran."""
     fortran = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fortran")
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "feetplayer", "fortran")
     declared, bad = {}, []
     for name in sorted(os.listdir(fortran)):
         if not name.endswith(".f"):

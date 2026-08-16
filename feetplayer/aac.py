@@ -60,7 +60,7 @@ import tempfile
 import threading
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_FORTRAN = os.path.join(os.path.dirname(_HERE), "fortran")
+_FORTRAN = os.path.join(_HERE, "fortran")
 
 # Compilation order does not matter to gfortran here -- there are no
 # modules, only COMMON blocks and an INCLUDE -- but a fixed order keeps the

@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, 'feat/**' ]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# .venv/bin on unix, .venv/Scripts on Windows -- bash exists on all three
+# runners, so $PY works everywhere and a step never has to know which.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Every interpreter the engine supports (its pyproject.toml says >=3.9) and
+  # all three platforms, because all three are here for a specific file:
+  # coreaudio.py is only ever exercised on macOS, winmm.py on Windows and
+  # alsa.py on Linux, and each of the other two can only prove it skips
+  # cleanly. All three runners turn out to have a gfortran, so the Fortran is
+  # built by three compilers on three operating systems rather than by one --
+  # which is worth more for AAC and MP3 than it is for H.264, because those
+  # two are not bit-exact standards and what is being checked is that the
+  # transform lands inside the same tolerance wherever it was built.
+  test:
+    name: ${{ matrix.os }} py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: '3.9' }
+          - { os: ubuntu-latest, python: '3.10' }
+          - { os: ubuntu-latest, python: '3.11' }
+          - { os: ubuntu-latest, python: '3.12' }
+          - { os: ubuntu-latest, python: '3.13' }
+          - { os: ubuntu-latest, python: '3.14' }
+          - { os: macos-latest, python: '3.12' }
+          - { os: macos-latest, python: '3.14' }
+          - { os: windows-latest, python: '3.12' }
+          - { os: windows-latest, python: '3.14' }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # gfortran for the three decoders. It is a build-time requirement and
+      # never a runtime one -- without it the decoders report themselves
+      # unavailable and the suites skip, which is a path the suites test on
+      # purpose -- so installing it here means CI checks the decoder rather
+      # than the skip. macOS and Windows runners ship one already.
+      - name: Install gfortran
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y gfortran
+
+      # The Rust image decoders. Pinned to a commit in pyproject.toml, which
+      # is what makes pip's wheel cache willing to keep the build: a VCS
+      # requirement is only cached when its URL is immutable.
+      - name: Cache the built engine
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: engine-${{ runner.os }}-py${{ matrix.python }}-${{ hashFiles('pyproject.toml') }}
+
+      - name: Install
+        run: |
+          python -m venv .venv
+          if [ -d .venv/Scripts ]; then bin="$PWD/.venv/Scripts"; \
+            else bin="$PWD/.venv/bin"; fi
+          "$bin/pip" install --quiet --upgrade pip
+          "$bin/pip" install --quiet pyflakes .
+          echo "PY=$bin/python" >> "$GITHUB_ENV"
+
+      - name: Lint (pyflakes)
+        run: $PY -m pyflakes feetplayer tests setup.py
+
+      # The install above compiled the Fortran into the installed package.
+      # Saying so out loud is the difference between a green run that decoded
+      # and a green run where every decoder suite skipped.
+      - name: The decoders came out of the install
+        run: |
+          $PY -c "import feetplayer.h264 as m; print('h264', m.library_path())"
+          $PY -c "import feetplayer.aac as m; print('aac ', m.library_path())"
+          $PY -c "import feetplayer.ball as m; print('mp3 ', m.library_path())"
+
+      # The suites run against the checkout rather than the installed copy --
+      # they put the repository root on sys.path themselves -- which is the
+      # arrangement every other file in tests/ already assumes.
+      - name: Audio stack
+        run: $PY tests/test_audio.py
+
+      - name: H.264 decoder
+        run: $PY tests/test_h264.py
+
+      - name: AAC decoder
+        run: $PY tests/test_aac.py
+
+      - name: MP3 decoder
+        run: $PY tests/test_mp3.py
+
+      - name: PCM audio
+        run: $PY tests/test_pcm.py
+
+  # What a stranger types. The job above installs from the working tree; this
+  # one installs the way the README says to, over the network, into a venv
+  # with nothing in it, and then decodes a real file with each decoder. It is
+  # the only thing here that would notice a package that builds from a
+  # checkout and not from a clone.
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install gfortran
+        run: sudo apt-get update && sudo apt-get install -y gfortran
+
+      - name: pip install from git
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install --quiet \
+            "git+https://github.com/${{ github.repository }}@${{ github.sha }}"
+
+      - name: Decode something with each of them
+        run: /tmp/clean/bin/python tests/decode_check.py
