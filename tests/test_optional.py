@@ -114,6 +114,35 @@ def test_the_refusal_happens_at_open_time_not_at_the_first_frame():
                 raise AssertionError("%s deferred its refusal" % name)
 
 
+def test_a_file_we_cannot_decode_still_probes_to_real_numbers():
+    """The rule the rest of this module already follows: a file whose codec
+    we do not have is walked far enough to report its size, duration and
+    codec name, and then declines. "32x24, MJPG, no decoder" is a sentence to
+    put in a poster frame; an exception out of `probe()` is not.
+
+    This is the specific thing that broke when the engine became optional --
+    the codec was built where its failure could not be turned into a reason
+    -- so it is asserted rather than assumed.
+    """
+    data = _read("pcm", "pcm.avi")
+    with _without_engine():
+        info = mediacodec.probe(data)
+        assert not info.supported, "it claimed to have a JPEG decoder"
+        assert (info.width, info.height) == (32, 24), (info.width, info.height)
+        assert info.frame_count > 0, "no frame count for a file we can see"
+        assert info.codec == "MJPG", info.codec
+        assert NAMED in (info.reason or ""), info.reason
+        try:
+            mediacodec.open_video(data)
+        except mediacodec.MediaError as exc:
+            assert NAMED in str(exc), exc
+        else:
+            raise AssertionError("open_video handed back an MJPEG track")
+    print("  ok  probe: %dx%d %s, %d frames, %s"
+          % (info.width, info.height, info.codec, info.frame_count,
+             info.reason))
+
+
 def test_h264_decodes_with_no_engine_installed():
     """The reason the package exists, on the machine that is missing the
     thing the package does not depend on. Pixel-exact, because H.264 is

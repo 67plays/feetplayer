@@ -1765,7 +1765,11 @@ def _open_avi(data):
     info = MediaInfo("AVI", codec_name, width, height, duration, len(ours))
 
     if is_mjpeg:
-        codec = _Mjpeg(width, height)
+        try:
+            codec = _Mjpeg(width, height)
+        except MediaError as exc:
+            info.reason = str(exc)
+            raise _Unsupported(info)
     elif compression == BI_RGB:
         codec = _RawDib(width, height, bit_count, palette, top_down)
     elif compression == BI_RLE8:
@@ -2808,11 +2812,19 @@ def _open_mp4(data, container="MP4"):
         frame_rate = MJPEG_DEFAULT_FPS
 
     if codec in MJPEG_FOURCCS:
-        decoder = _Mjpeg(width, height)
+        try:
+            decoder = _Mjpeg(width, height)
+        except MediaError as exc:
+            info.reason = str(exc)
+            raise _Unsupported(info)
     elif codec == "raw ":
         decoder = _QuickTimeRaw(width, height, video.depth)
     elif codec == "png ":
-        decoder = _PngFrames(width, height)
+        try:
+            decoder = _PngFrames(width, height)
+        except MediaError as exc:
+            info.reason = str(exc)
+            raise _Unsupported(info)
     elif codec in H264_FOURCCS:
         try:
             decoder = _H264(width, height, video.extradata, data, samples)
@@ -3282,8 +3294,13 @@ def _open_mjpeg_stream(data):
     frame_rate = MJPEG_DEFAULT_FPS
     info = MediaInfo("MJPEG", "MJPG", width, height,
                      len(frames) / frame_rate, len(frames))
+    try:
+        codec = _Mjpeg(width, height)
+    except MediaError as exc:
+        info.reason = str(exc)
+        raise _Unsupported(info)
     info.supported = True
-    return VideoTrack(data, info, frames, _Mjpeg(width, height), frame_rate,
+    return VideoTrack(data, info, frames, codec, frame_rate,
                       list(range(len(frames))))
 
 

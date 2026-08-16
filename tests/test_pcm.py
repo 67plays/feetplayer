@@ -398,10 +398,20 @@ def test_an_avis_sound_arrives_beside_the_pictures_it_belongs_to():
     first one would still produce a frame and still sound like the file.
     """
     data = fixture("pcm.avi")
-    picture = mediacodec.open_video(data)
-    eq((picture.info.width, picture.info.height), (32, 24))
-    assert picture.info.supported and picture.info.frame_count > 0
-    assert picture.frame(0).rgba, "the picture stopped decoding"
+    # The pictures are MJPEG, whose JPEG decoder lives in the optional
+    # feetbrowser_engine, so the half of this that is about pictures is
+    # written to hold either way round. What is not optional, and is the
+    # subject here, is that the demuxer finds both streams in the one file:
+    # the frame count and the size come out of the AVI's own headers and are
+    # asserted whether or not anything can decode a frame.
+    info = mediacodec.probe(data)
+    eq((info.width, info.height), (32, 24))
+    assert info.frame_count > 0
+    if info.supported:
+        picture = mediacodec.open_video(data)
+        assert picture.frame(0).rgba, "the picture stopped decoding"
+    else:
+        assert "feetbrowser_engine" in (info.reason or ""), info.reason
 
     track = mediacodec.open_audio(data)
     eq(track.container, "AVI")
